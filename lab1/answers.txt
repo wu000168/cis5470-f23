@@ -25,20 +25,22 @@ and F-Measure scores for each analyzer on this suite of programs.
 ===========================================================================
 | Program   | Ground Truth  |     AFL      | IKOS Interval |   IKOS DBM   |
 |=========================================================================|
-| test0.c   |               |              |               |              |
-| test1.c   |               |              |               |              |
-| test2.c   |               |              |               |              |
-| test3.c   |               |              |               |              |
-| test4.c   |               |              |               |              |
-| test5.c   |               |              |               |              |
-| test6.c   |               |              |               |              |
-| test7.c   |               |              |               |              |
-| test8.c   |               |              |               |              |
-| test9.c   |               |              |               |              |
+| test0.c   |     right     |    accept    |    accept     |    accept    |
+| test1.c   |     wrong     |    reject    |    reject     |    reject    |
+| test2.c   |     wrong     |    reject    |    reject     |    reject    |
+| test3.c   |     right     |    accept    |    reject     |    reject    |
+| test4.c   |     right     |    accept    |    reject     |    accept    |
+| test5.c   |     wrong     |    accept    |    reject     |    reject    |
+| test6.c   |     wrong     |    reject    |    reject     |    reject    |
+| test7.c   |     wrong     |    reject    |    reject     |    reject    |
+| test8.c   |     wrong     |    accept    |    reject     |    reject    |
+| test9.c   |     wrong     |    reject    |    reject     |    reject    |
 |=========================================================================|
-| Precision |     ---       |     ---      |     ---       |     ---      |
-| Recall    |     ---       |     ---      |     ---       |     ---      |
-| F-measure |     ---       |     ---      |     ---       |     ---      |
+| Precision and recall are calculated with "accept"/"right" as positive.  |
+|=========================================================================|
+| Precision |     1.00      |     0.60     |     1.00      |     1.00     |
+| Recall    |     1.00      |     1.00     |     0.33      |     0.67     |
+| F-measure |     1.00      |     0.75     |     0.50      |     0.80     |
 ===========================================================================
 
 Part B: Answer the below questions. Provide short
