@@ -36,8 +36,6 @@ and F-Measure scores for each analyzer on this suite of programs.
 | test8.c   |     wrong     |    accept    |    reject     |    reject    |
 | test9.c   |     wrong     |    reject    |    reject     |    reject    |
 |=========================================================================|
-| Precision and recall are calculated with "accept"/"right" as positive.  |
-|=========================================================================|
 | Precision |     1.00      |     0.60     |     1.00      |     1.00     |
 | Recall    |     1.00      |     1.00     |     0.33      |     0.67     |
 | F-measure |     1.00      |     0.75     |     0.50      |     0.80     |
@@ -47,20 +45,20 @@ Part B: Answer the below questions. Provide short
 explanations to justify your answers.
 
 Question 1: From the given programs, can AFL be a sound analysis? Can it be complete?
-Answer:
 
+Answer: It is not sound, but it could be complete.
 
 
 
 Question 2: From the given programs, can IKOS interval be a sound analysis? Can it be complete?
-Answer:
 
+Answer: It could be sound, but it is not complete.
 
 
 
 Question 3: From the given programs, can IKOS DBM be a sound analysis? Can it be complete?
-Answer:
 
+Answer: It could be sound, but it is not complete.
 
 
 
@@ -68,8 +66,8 @@ Question 4: What are the pros and cons of using the Interval versus DBM
 domains in IKOS to find divide-by-zero errors?  Comment
 on both the accuracy and cost of the analyzer under these two domains.
 
-Answer:
-
+Answer: They are largely similar in accuracy, with DBM being slightly more
+accurate, but interval seems to be more conservative, and DBM generally slower.
 
 
 
