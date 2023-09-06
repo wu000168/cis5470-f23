@@ -30,6 +30,16 @@ bool Instrument::runOnFunction(Function &F) {
      * print the information about its location and operands as specified in the
      * Lab document.
      */
+    if (auto *BinOp = dyn_cast<BinaryOperator>(&Inst)) {
+      Value *Op1 = BinOp->getOperand(0);
+      Value *Op2 = BinOp->getOperand(1);
+      std::string Op1Str = variable(Op1);
+      std::string Op2Str = variable(Op2);
+      std::string OpStr = getBinOpName(getBinOpSymbol(BinOp->getOpcode()));
+      outs() << OpStr << " on Line " << Line << ", Column " << Col
+             << " with first operand " << Op1Str << " and second operand "
+             << Op2Str << "\n";
+    }
   }
   return false;
 }
@@ -37,4 +47,4 @@ bool Instrument::runOnFunction(Function &F) {
 char Instrument::ID = 1;
 static RegisterPass<Instrument> X(PASS_NAME, PASS_NAME, false, false);
 
-} // namespace instrument
+}  // namespace instrument

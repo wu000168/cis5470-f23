@@ -48,6 +48,9 @@ bool Instrument::runOnFunction(Function &F) {
      * TODO: Add code to check if the instruction is a BinaryOperator and if so,
      * instrument the instruction as specified in the Lab document.
      */
+    if (auto *BinOp = dyn_cast<BinaryOperator>(&Inst)) {
+      instrumentBinOpOperands(M, BinOp, Line, Col);
+    }
   }
 
   return true;
@@ -72,14 +75,25 @@ void instrumentBinOpOperands(Module *M, BinaryOperator *BinOp, int Line,
   auto *Int32Type = Type::getInt32Ty(Context);
   auto *CharType = Type::getInt8Ty(Context);
 
+  auto OpCodeVal =
+      ConstantInt::get(CharType, getBinOpSymbol(BinOp->getOpcode()));
+  auto LineVal = ConstantInt::get(Int32Type, Line);
+  auto ColVal = ConstantInt::get(Int32Type, Col);
+  auto Op1Val = BinOp->getOperand(0);
+  auto Op2Val = BinOp->getOperand(1);
+
+  std::vector<Value *> Args = {OpCodeVal, LineVal, ColVal, Op1Val, Op2Val};
+
   /**
    * TODO: Add code to instrument the BinaryOperator to print
    * its location, operation type and the runtime values of its
    * operands.
    */
+  auto *BinOpFunction = M->getFunction(BINOP_OPERANDS_FUNCTION_NAME);
+  CallInst::Create(BinOpFunction, Args, "", BinOp);
 }
 
 char Instrument::ID = 1;
 static RegisterPass<Instrument> X(PASS_NAME, PASS_NAME, false, false);
 
-} // namespace instrument
+}  // namespace instrument

@@ -22,8 +22,8 @@ in its result (accept/reject) in the respective column:
 Lastly, use the above computed results to calculate Precision, Recall,
 and F-Measure scores for each analyzer on this suite of programs.
 
-===========================================================================
-| Program   | Ground Truth  |     AFL      | IKOS Interval |   IKOS DBM   |
+============================================================================
+|  Program   | Ground Truth  |     AFL      | IKOS Interval |   IKOS DBM   |
 |=========================================================================|
 | test0.c   |     right     |    accept    |    accept     |    accept    |
 | test1.c   |     wrong     |    reject    |    reject     |    reject    |
