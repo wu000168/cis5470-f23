@@ -2,7 +2,7 @@
 #include "Utils.h"
 
 namespace dataflow {
-
+using namespace llvm;
 /**
  * @brief Is the given instruction a user input?
  *
@@ -53,6 +53,22 @@ Domain *eval(BinaryOperator *BinOp, const Memory *InMem) {
    * TODO: Write your code here that evaluates +, -, * and /
    * based on the Domains of the operands.
    */
+  AddrSpaceCastInst::BinaryOps opCode = BinOp->getOpcode();
+  Domain *dom1 = getOrExtract(InMem, BinOp->getOperand(0));
+  Domain *dom2 = getOrExtract(InMem, BinOp->getOperand(1));
+  switch (opCode) {
+    case AddrSpaceCastInst::BinaryOps::Add:
+      return Domain::add(dom1, dom2);
+    case AddrSpaceCastInst::BinaryOps::Sub:
+      return Domain::sub(dom1, dom2);
+    case AddrSpaceCastInst::BinaryOps::Mul:
+      return Domain::mul(dom1, dom2);
+    case AddrSpaceCastInst::BinaryOps::UDiv:
+    case AddrSpaceCastInst::BinaryOps::SDiv:
+      return Domain::div(dom1, dom2);
+    default:
+      return new Domain(Domain::MaybeZero);
+  }
 }
 
 /**
@@ -66,7 +82,7 @@ Domain *eval(CastInst *Cast, const Memory *InMem) {
   /**
    * TODO: Write your code here to evaluate Cast instruction.
    */
-  return NULL;
+  return getOrExtract(InMem, Cast->getOperand(0));
 }
 
 /**
@@ -85,7 +101,43 @@ Domain *eval(CmpInst *Cmp, const Memory *InMem) {
    * NOTE: There is a lot of scope for refining this, but you can just return
    * MaybeZero for comparisons other than equality.
    */
-   return NULL;
+  CmpInst::Predicate predicate = Cmp->getPredicate();
+  Domain *E1 = getOrExtract(InMem, Cmp->getOperand(0));
+  Domain *E2 = getOrExtract(InMem, Cmp->getOperand(1));
+  if (E1->Value == Domain::Uninit || E2->Value == Domain::Uninit)
+    return new Domain(Domain::Uninit);
+  switch (predicate) {
+    case CmpInst::Predicate::ICMP_EQ:
+      if (E1->Value == Domain::Zero && E2->Value == Domain::Zero)
+        return new Domain(Domain::NonZero);
+      if (E1->Value == Domain::Zero && E2->Value == Domain::NonZero ||
+          E1->Value == Domain::NonZero && E2->Value == Domain::Zero)
+        return new Domain(Domain::Zero);
+      return new Domain(Domain::MaybeZero);
+    case CmpInst::Predicate::ICMP_NE:
+      if (E1->Value == Domain::Zero && E2->Value == Domain::Zero)
+        return new Domain(Domain::Zero);
+      if (E1->Value == Domain::Zero && E2->Value == Domain::NonZero ||
+          E1->Value == Domain::NonZero && E2->Value == Domain::Zero)
+        return new Domain(Domain::NonZero);
+      return new Domain(Domain::MaybeZero);
+    case CmpInst::Predicate::ICMP_UGT:
+    case CmpInst::Predicate::ICMP_SGT:
+    case CmpInst::Predicate::ICMP_ULT:
+    case CmpInst::Predicate::ICMP_SLT:
+      if (E1->Value == Domain::Zero && E2->Value == Domain::Zero)
+        return new Domain(Domain::Zero);
+      return new Domain(Domain::MaybeZero);
+    case CmpInst::Predicate::ICMP_UGE:
+    case CmpInst::Predicate::ICMP_SGE:
+    case CmpInst::Predicate::ICMP_ULE:
+    case CmpInst::Predicate::ICMP_SLE:
+      if (E1->Value == Domain::Zero && E2->Value == Domain::Zero)
+        return new Domain(Domain::NonZero);
+      return new Domain(Domain::MaybeZero);
+    default:
+      return new Domain(Domain::MaybeZero);
+  }
 }
 
 void DivZeroAnalysis::transfer(Instruction *Inst, const Memory *In,
@@ -122,4 +174,4 @@ void DivZeroAnalysis::transfer(Instruction *Inst, const Memory *In,
   }
 }
 
-} // namespace dataflow
+}  // namespace dataflow
