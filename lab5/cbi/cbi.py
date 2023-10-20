@@ -2,6 +2,7 @@
 
 from collections import defaultdict
 import itertools
+import functools
 from pathlib import Path
 from typing import Dict, Iterable, List, Set
 from cbi.data_format import (
@@ -36,8 +37,11 @@ def collect_observations(log: CBILog) -> Dict[Predicate, ObservationStatus]:
 
     Hint: The PredicateType.alternatives will come in handy.
     """
-
-
+    for entry in log:
+        for pred_type, obs in PredicateType.alternatives(entry.value):
+            pred = Predicate(entry.line, entry.column, pred_type)
+            observations[pred] = ObservationStatus.merge(observations[pred], obs) 
+        
     return observations
 
 
@@ -48,10 +52,11 @@ def collect_all_predicates(logs: Iterable[CBILog]) -> Set[Predicate]:
     :param logs: Collection of CBILogs
     :return: Set of all predicates found across all logs.
     """
-    predicates = set()
-
-    # TODO: Add your code here
-
+    predicates = set(
+        Predicate(entry.line, entry.column, pred_type) 
+            for log in logs for entry in log
+                for pred_type, _ in PredicateType.alternatives(entry.value)
+    )
 
     return predicates
 
@@ -71,7 +76,19 @@ def cbi(success_logs: List[CBILog], failure_logs: List[CBILog]) -> Report:
     }
 
     # TODO: Add your code here to compute the information for each predicate.
+    for log in success_logs:
+        for pred, status in collect_observations(log).items():
+            if status == ObservationStatus.ONLY_TRUE or status == ObservationStatus.BOTH:
+                predicate_infos[pred].s += 1
+            if status != ObservationStatus.NEVER:
+                predicate_infos[pred].s_obs += 1
 
+    for log in failure_logs:
+        for pred, status in collect_observations(log).items():
+            if status == ObservationStatus.ONLY_TRUE or status == ObservationStatus.BOTH:
+                predicate_infos[pred].f += 1
+            if status != ObservationStatus.NEVER:
+                predicate_infos[pred].f_obs += 1
 
 
     # Finally, create a report and return it.

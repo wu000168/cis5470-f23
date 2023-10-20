@@ -67,6 +67,15 @@ bool CBIInstrument::runOnFunction(Function &F) {
      *   use instrumentReturn
      * @param Branch
      */
+    if (auto *Branch = dyn_cast<BranchInst>(&Inst)) {
+      if (Branch->isConditional()) {
+        instrumentBranch(M, Branch, Line, Col);
+      }
+    } else if (auto *Call = dyn_cast<CallInst>(&Inst)) {
+      if (Call->getType()->isIntegerTy(32)) {
+        instrumentReturn(M, Call, Line, Col);
+      }
+    }
   }
   return true;
 }
@@ -78,9 +87,16 @@ void instrumentBranch(Module *M, BranchInst *Branch, int Line, int Col) {
   auto &Context = M->getContext();
   auto Int32Type = Type::getInt32Ty(Context);
 
+  auto LineVal = ConstantInt::get(Int32Type, Line);
+  auto ColVal = ConstantInt::get(Int32Type, Col);
+  auto BranchVal = Branch->getCondition();
+
+  std::vector<Value *> Args = {LineVal, ColVal, BranchVal};
   /**
    * TODO: Add code to instrument the Branch Instruction.
    */
+  auto *BranchFunction = M->getFunction(CBI_BRANCH_FUNCTION_NAME);
+  CallInst::Create(BranchFunction, Args, "", Branch);
 }
 
 /**
@@ -90,14 +106,21 @@ void instrumentReturn(Module *M, CallInst *Call, int Line, int Col) {
   auto &Context = M->getContext();
   auto Int32Type = Type::getInt32Ty(Context);
 
+  auto LineVal = ConstantInt::get(Int32Type, Line);
+  auto ColVal = ConstantInt::get(Int32Type, Col);
+  auto CallVal = dyn_cast<Value>(Call);
+
+  std::vector<Value *> Args = {LineVal, ColVal, CallVal};
   /**
    * TODO: Add code to instrument the Call Instruction.
    *
    * Note: CallInst::Create(.) follows Insert Before semantics.
    */
+  auto *ReturnFunction = M->getFunction(CBI_RETURN_FUNCTION_NAME);
+  CallInst::Create(ReturnFunction, Args, "", Call->getNextNode());
 }
 
 char CBIInstrument::ID = 1;
 static RegisterPass<CBIInstrument> X(PASS_NAME, PASS_DESC, false, false);
 
-} // namespace instrument
+}  // namespace instrument
