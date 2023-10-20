@@ -45,8 +45,8 @@ std::vector<Instruction *> getSuccessors(Instruction *Inst) {
         Ret.push_back(&(*Iter));
         return Ret;
       }
-      for (auto Succ = succ_begin(Block), BS = succ_end(Block);
-           Succ != BS; ++Succ) {
+      for (auto Succ = succ_begin(Block), BS = succ_end(Block); Succ != BS;
+           ++Succ) {
         Ret.push_back(&(*((*Succ)->begin())));
       }
       return Ret;
@@ -73,7 +73,15 @@ Memory *join(Memory *Mem1, Memory *Mem2) {
    *   domain D2, then Domain::join D1 and D2 to find the new domain D,
    *   and add instruction I with domain D to the Result.
    */
-  return NULL;
+  Memory *joinedMem = new Memory(*Mem1);
+  for (auto I : *Mem2) {
+    if (joinedMem->find(I.first) == joinedMem->end()) {
+      (*joinedMem)[I.first] = I.second;
+    } else {
+      (*joinedMem)[I.first] = Domain::join((*joinedMem)[I.first], I.second);
+    }
+  }
+  return joinedMem;
 }
 
 void DivZeroAnalysis::flowIn(Instruction *Inst, Memory *InMem) {
@@ -84,6 +92,11 @@ void DivZeroAnalysis::flowIn(Instruction *Inst, Memory *InMem) {
    *   + Get the Out Memory of Pred using OutMap.
    *   + Join the Out Memory with InMem.
    */
+  std::vector<Instruction *> preds = getPredecessors(Inst);
+  for (auto Pred : preds) {
+    Memory *OutMem = OutMap[Pred];
+    *InMem = *join(InMem, OutMem);
+  }
 }
 
 /**
@@ -104,7 +117,21 @@ bool equal(Memory *Mem1, Memory *Mem2) {
    * If any instruction I is present in Mem1 with domain D1 and in Mem2
    *   with domain D2, if D1 and D2 are unequal, then the memories are unequal.
    */
-  return false;
+  for (auto I : *Mem1) {
+    bool notFound = Mem2->find(I.first) == Mem2->end();
+    if (notFound && I.second->Value != Domain::Uninit ||
+        !notFound && !Domain::equal(*I.second, *(*Mem2)[I.first])) {
+      return false;
+    }
+  }
+  for (auto I : *Mem2) {
+    bool notFound = Mem1->find(I.first) == Mem1->end();
+    if (notFound && I.second->Value != Domain::Uninit ||
+        !notFound && !Domain::equal(*I.second, *(*Mem1)[I.first])) {
+      return false;
+    }
+  }
+  return true;
 }
 
 void DivZeroAnalysis::flowOut(Instruction *Inst, Memory *Pre, Memory *Post,
@@ -116,6 +143,12 @@ void DivZeroAnalysis::flowOut(Instruction *Inst, Memory *Pre, Memory *Post,
    * and post-transfer memory, and update the OutMap.
    * If the OutMap changed then also update the WorkSet.
    */
+  Memory *JoinedMem = join(Pre, Post);
+  if (!equal(OutMap[Inst], JoinedMem)) {
+    OutMap[Inst] = JoinedMem;
+    std::vector<Instruction *> succs = getSuccessors(Inst);
+    WorkSet.insert(succs.begin(), succs.end());
+  }
 }
 
 void DivZeroAnalysis::doAnalysis(Function &F) {
@@ -134,6 +167,24 @@ void DivZeroAnalysis::doAnalysis(Function &F) {
    *   memory, to check if there is a difference between the two to update the
    *   OutMap and add all successors to WorkSet.
    */
+  for (inst_iterator Iter = inst_begin(F), End = inst_end(F); Iter != End;
+       ++Iter) {
+    WorkSet.insert(&(*Iter));
+  }
+  while (!WorkSet.empty()) {
+    Instruction *Inst = WorkSet.pop_back_val();
+    // errs() << *Inst << "\n";
+    Memory *InMem = InMap[Inst];
+    flowIn(Inst, InMem);
+    // errs() << "In: \n";
+    // printMemory(InMem);
+    Memory *PostOutMem = new Memory(*InMem);
+    transfer(Inst, InMem, *PostOutMem);
+    Memory *PreOutMem = OutMap[Inst];
+    flowOut(Inst, PreOutMem, PostOutMem, WorkSet);
+    // errs() << "Out: \n";
+    // printMemory(OutMap[Inst]);
+  }
 }
 
-} // namespace dataflow
+}  // namespace dataflow
