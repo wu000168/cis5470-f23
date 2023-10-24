@@ -73,7 +73,15 @@ Memory *join(Memory *Mem1, Memory *Mem2) {
    *   domain D2, then Domain::join D1 and D2 to find the new domain D,
    *   and add instruction I with domain D to the Result.
    */
-  return NULL;
+  Memory *joinedMem = new Memory(*Mem1);
+  for (auto I : *Mem2) {
+    if (joinedMem->find(I.first) == joinedMem->end()) {
+      (*joinedMem)[I.first] = I.second;
+    } else {
+      (*joinedMem)[I.first] = Domain::join((*joinedMem)[I.first], I.second);
+    }
+  }
+  return joinedMem;
 }
 
 void DivZeroAnalysis::flowIn(Instruction *Inst, Memory *InMem) {
@@ -84,6 +92,11 @@ void DivZeroAnalysis::flowIn(Instruction *Inst, Memory *InMem) {
    *   + Get the Out Memory of Pred using OutMap.
    *   + Join the Out Memory with InMem.
    */
+  std::vector<Instruction *> preds = getPredecessors(Inst);
+  for (auto Pred : preds) {
+    Memory *OutMem = OutMap[Pred];
+    *InMem = *join(InMem, OutMem);
+  }
 }
 
 /**
@@ -104,7 +117,21 @@ bool equal(Memory *Mem1, Memory *Mem2) {
    * If any instruction I is present in Mem1 with domain D1 and in Mem2
    *   with domain D2, if D1 and D2 are unequal, then the memories are unequal.
    */
-  return false;
+  for (auto I : *Mem1) {
+    bool notFound = Mem2->find(I.first) == Mem2->end();
+    if (notFound && I.second->Value != Domain::Uninit ||
+        !notFound && !Domain::equal(*I.second, *(*Mem2)[I.first])) {
+      return false;
+    }
+  }
+  for (auto I : *Mem2) {
+    bool notFound = Mem1->find(I.first) == Mem1->end();
+    if (notFound && I.second->Value != Domain::Uninit ||
+        !notFound && !Domain::equal(*I.second, *(*Mem1)[I.first])) {
+      return false;
+    }
+  }
+  return true;
 }
 
 void DivZeroAnalysis::flowOut(Instruction *Inst, Memory *Pre, Memory *Post,
@@ -116,6 +143,12 @@ void DivZeroAnalysis::flowOut(Instruction *Inst, Memory *Pre, Memory *Post,
    * and post-transfer memory, and update the OutMap.
    * If the OutMap changed then also update the WorkSet.
    */
+  Memory *JoinedMem = join(Pre, Post);
+  if (!equal(OutMap[Inst], JoinedMem)) {
+    OutMap[Inst] = JoinedMem;
+    std::vector<Instruction *> succs = getSuccessors(Inst);
+    WorkSet.insert(succs.begin(), succs.end());
+  }
 }
 
 void DivZeroAnalysis::doAnalysis(Function &F, PointerAnalysis *PA) {
@@ -125,21 +158,39 @@ void DivZeroAnalysis::doAnalysis(Function &F, PointerAnalysis *PA) {
    * TODO: Write your code to implement the chaotic iteration algorithm
    * for the analysis.
    *
-   * First, find the arguments of function call and instantiate abstract domain values
-   * for each argument.
-   * Initialize the WorkSet and PointerSet with all the instructions in the function.
-   * The rest of the implementation is almost similar to the previous lab.
+   * First, find the arguments of function call and instantiate abstract domain
+   * values for each argument. Initialize the WorkSet and PointerSet with all
+   * the instructions in the function. The rest of the implementation is almost
+   * similar to the previous lab.
    *
    * While the WorkSet is not empty:
    * - Pop an instruction from the WorkSet.
    * - Construct it's Incoming Memory using flowIn.
    * - Evaluate the instruction using transfer and create the OutMemory.
-   *   Note that the transfer function takes two additional arguments compared to previous lab:
-   *   the PointerAnalysis object and the populated PointerSet.
+   *   Note that the transfer function takes two additional arguments compared
+   * to previous lab: the PointerAnalysis object and the populated PointerSet.
    * - Use flowOut along with the previous Out memory and the current Out
    *   memory, to check if there is a difference between the two to update the
    *   OutMap and add all successors to WorkSet.
    */
+  for (inst_iterator Iter = inst_begin(F), End = inst_end(F); Iter != End;
+       ++Iter) {
+    WorkSet.insert(&(*Iter));
+  }
+  while (!WorkSet.empty()) {
+    Instruction *Inst = WorkSet.pop_back_val();
+    // errs() << *Inst << "\n";
+    Memory *InMem = InMap[Inst];
+    flowIn(Inst, InMem);
+    // errs() << "In: \n";
+    // printMemory(InMem);
+    Memory *PostOutMem = new Memory(*InMem);
+    transfer(Inst, InMem, *PostOutMem, PA, PointerSet);
+    Memory *PreOutMem = OutMap[Inst];
+    flowOut(Inst, PreOutMem, PostOutMem, WorkSet);
+    // errs() << "Out: \n";
+    // printMemory(OutMap[Inst]);
+  }
 }
 
-} // namespace dataflow
+}  // namespace dataflow
