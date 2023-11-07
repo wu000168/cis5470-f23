@@ -184,23 +184,21 @@ void DivZeroAnalysis::transfer(Instruction *Inst, const Memory *In,
      * getPointerOperand() useful.
      */
     Type *type = Store->getValueOperand()->getType();
-    auto destination = variable(Store->getPointerOperand());
     if (type->isIntegerTy()) {
-      NOut[variable(Store)] = getOrExtract(In, Store->getPointerOperand());
-    } else if (type->isPointerTy()) {
+      auto destination = variable(Store->getPointerOperand());
+      NOut[destination] = getOrExtract(In, Store->getValueOperand());
+      Domain *joined = NOut[destination];
       for (auto ptr : PointerSet) {
         auto ptrName = variable(ptr);
-        if (PA->alias(destination, ptrName)) {
-          Domain *dom1 = getOrExtract(In, Store->getPointerOperand());
+        if (PA->alias(destination, ptrName) && ptrName != destination) {
           Domain *dom2 = getOrExtract(In, ptr);
-          Domain *joined = Domain::join(dom1, dom2);
-          NOut[variable(Store)] = joined;
-          for (auto ptr2 : PointerSet) {
-            auto otherPtrName = variable(ptr2);
-            if (PA->alias(otherPtrName, ptrName)) {
-              NOut[otherPtrName] = joined;
-            }
-          }
+          joined = Domain::join(joined, dom2);
+        }
+      }
+      for (auto ptr : PointerSet) {
+        auto ptrName = variable(ptr);
+        if (PA->alias(destination, ptrName) && ptrName != destination) {
+          NOut[ptrName] = joined;
         }
       }
     }
@@ -223,9 +221,6 @@ void DivZeroAnalysis::transfer(Instruction *Inst, const Memory *In,
         NOut[variable(Load)] = In->at(variable(source));
       else
         NOut[variable(Load)] = new Domain(Domain::Uninit);
-    } else if (type->isPointerTy()) {
-      auto source = Load->getPointerOperand();
-      NOut[variable(Load)] = new Domain(Domain::MaybeZero);
     }
   } else if (auto Branch = dyn_cast<BranchInst>(Inst)) {
     // Analysis is flow-insensitive, so do nothing here.
@@ -235,6 +230,8 @@ void DivZeroAnalysis::transfer(Instruction *Inst, const Memory *In,
      *
      * You only need to consider calls with int return type.
      */
+    if (Call->getType()->isIntegerTy())
+      NOut[variable(Call)] = new Domain(Domain::MaybeZero);
   } else if (auto Return = dyn_cast<ReturnInst>(Inst)) {
     // Analysis is intra-procedural, so do nothing here.
   } else {

@@ -31,6 +31,22 @@ bool DivZeroAnalysis::check(Instruction *Inst) {
    *
    * Hint: getOrExtract function may be useful to simplify your code.
    */
+  if (auto BinOp = dyn_cast<BinaryOperator>(Inst)) {
+    AddrSpaceCastInst::BinaryOps opCode = BinOp->getOpcode();
+    Domain *dom2 = getOrExtract(InMap[Inst], BinOp->getOperand(1));
+    switch (opCode) {
+      case AddrSpaceCastInst::BinaryOps::UDiv:
+      case AddrSpaceCastInst::BinaryOps::SDiv:
+        bool zeroDiv = Domain::equal(*dom2, Domain(Domain::Zero)) ||
+                       Domain::equal(*dom2, Domain(Domain::MaybeZero));
+
+        if (zeroDiv) {
+          (*OutMap[Inst])[variable(Inst)] = new Domain(Domain::Uninit);
+        }
+        return zeroDiv;
+    }
+  }
+  return false;
   return false;
 }
 
@@ -53,8 +69,7 @@ bool DivZeroAnalysis::runOnFunction(Function &F) {
   for (inst_iterator Iter = inst_begin(F), End = inst_end(F); Iter != End;
        ++Iter) {
     auto Inst = &(*Iter);
-    if (check(Inst))
-      ErrorInsts.insert(Inst);
+    if (check(Inst)) ErrorInsts.insert(Inst);
   }
 
   printMap(F, InMap, OutMap);
@@ -73,4 +88,4 @@ bool DivZeroAnalysis::runOnFunction(Function &F) {
 char DivZeroAnalysis::ID = 1;
 static RegisterPass<DivZeroAnalysis> X("DivZero", "Divide-by-zero Analysis",
                                        false, false);
-} // namespace dataflow
+}  // namespace dataflow

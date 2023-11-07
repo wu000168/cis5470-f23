@@ -173,23 +173,22 @@ void DivZeroAnalysis::doAnalysis(Function &F, PointerAnalysis *PA) {
    *   memory, to check if there is a difference between the two to update the
    *   OutMap and add all successors to WorkSet.
    */
+  for (auto &Arg : F.args()) {
+    (*InMap[&(*inst_begin(F))])[variable(&Arg)] = new Domain(Domain::MaybeZero);
+  }
   for (inst_iterator Iter = inst_begin(F), End = inst_end(F); Iter != End;
        ++Iter) {
     WorkSet.insert(&(*Iter));
+    PointerSet.insert(&(*Iter));
   }
   while (!WorkSet.empty()) {
     Instruction *Inst = WorkSet.pop_back_val();
-    // errs() << *Inst << "\n";
     Memory *InMem = InMap[Inst];
     flowIn(Inst, InMem);
-    // errs() << "In: \n";
-    // printMemory(InMem);
     Memory *PostOutMem = new Memory(*InMem);
     transfer(Inst, InMem, *PostOutMem, PA, PointerSet);
     Memory *PreOutMem = OutMap[Inst];
     flowOut(Inst, PreOutMem, PostOutMem, WorkSet);
-    // errs() << "Out: \n";
-    // printMemory(OutMap[Inst]);
   }
 }
 
