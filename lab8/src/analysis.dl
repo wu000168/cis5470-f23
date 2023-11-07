@@ -44,3 +44,7 @@ in(inst, def_inst) :- out(prev_inst, def_inst), next(prev_inst, inst).
 
 /* Rules for taint Analysis */
 /* TODO: Add the rules for taint analysis */
+edge(def_inst, inst):- use(var, inst), def(var, def_inst),  in(inst, def_inst).
+path(from, to):- taint(from), edge(from, to).
+path(from, to):- path(from, via), edge(via, to), !sanitizer(via).
+alarm(inst):- path(_, denom), div(denom, inst).
